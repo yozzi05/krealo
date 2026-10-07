@@ -20,8 +20,7 @@
   .app-side { display: none; }
   .app-topbar { display: flex; align-items: center; gap: var(--s-2); padding: 8px var(--gutter); border-bottom: var(--b-1); background: #FBFAF6; position: sticky; top: 0; z-index: var(--z-header); }
   .show-md { display: inline-flex !important; }
-  .app-topbar .logo { font-size: 19px; }
-  .app-topbar .logo-mark { width: 19px; height: 26px; }
+  .app-topbar .logo-img { height: 30px; }
 }
 
 /* Заголовок раздела */

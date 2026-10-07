@@ -37,9 +37,9 @@
 
   /* ---------- Логотип ---------- */
   U.logo = function (dark) {
+    const src = 'assets/brand/krealo-logo' + (dark ? '-on-dark' : '') + '.svg';
     return '<a class="logo' + (dark ? ' logo-dark' : '') + '" href="#/" aria-label="' + U.esc(U.config.brandName) + ' — на главную">' +
-      '<span class="logo-mark" aria-hidden="true"><span></span></span>' +
-      '<span class="logo-word">' + U.esc(U.config.brandName) + '</span></a>';
+      '<img class="logo-img" src="' + src + '" alt="" width="505" height="124"></a>';
   };
 
   /* ---------- Полоса прототипа ---------- */
@@ -68,14 +68,14 @@
       '<a href="#/?s=pricing" data-scroll="pricing">Стоимость</a>' +
       '<a href="#/?s=for-creators" data-scroll="for-creators">Креаторам</a></nav>' +
       '<div class="site-header-actions"><a class="btn btn-ghost btn-sm hide-sm" href="#/orders">Кабинет</a>' +
-      '<a class="btn btn-primary btn-sm" href="#/campaigns/new">Заказать видео</a>' +
+      '<a class="btn btn-primary btn-sm" href="#/campaigns/new" aria-label="Заказать видео">Заказать<span class="cta-tail"> видео</span></a>' +
       '<button class="btn btn-ghost btn-icon btn-sm show-sm" type="button" data-action="site-menu" aria-label="Меню" aria-expanded="false">' + I('menu') + '</button></div>' +
       '</div></header>';
   }
   function siteFooter() {
     return '<footer class="site-footer on-dark"><div class="wrap">' +
       '<div class="footer-grid">' +
-      '<div>' + U.logo(true) + '<p class="footer-note">Рабочее название — временное обозначение для прототипа. Все люди, компании, заказы и суммы на сайте вымышлены и показаны для демонстрации.</p></div>' +
+      '<div>' + U.logo(true) + '<p class="footer-note">Прототип интерфейса платформы. Все люди, компании, заказы и суммы на сайте вымышлены и показаны для демонстрации.</p></div>' +
       '<nav aria-label="Разделы"><h2 class="footer-h">Заказчикам</h2><a href="#/campaigns/new">Заказать видео</a><a href="#/creators">Каталог креаторов</a><a href="#/orders/o-1048">Пример заказа</a></nav>' +
       '<nav aria-label="Креаторам"><h2 class="footer-h">Креаторам</h2><a href="#/join">Стать креатором</a><a href="#/studio" data-action="as-creator">Кабинет креатора</a></nav>' +
       '<nav aria-label="Прототип"><h2 class="footer-h">Прототип</h2><a href="#/sources">Источники фото и видео</a><a href="#/admin" data-action="as-admin">Админ-панель</a></nav>' +
