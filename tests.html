@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Проверки прототипа — UGC</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 24px; background: #F6F5F0; color: #171B18; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sum { margin: 8px 0 20px; font-weight: 600; }
+    .ok { color: #1D6A43; } .bad { color: #A3231B; }
+    ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    li span { color: #62685F; }
+    h2 { font-size: 16px; margin: 20px 0 6px; }
+  </style>
+</head>
+<body>
+  <h1>Проверки расчётов и переходов состояний</h1>
+  <p>Тесты работают на отдельной копии демо-данных в памяти и не меняют состояние прототипа в браузере.</p>
+  <p class="sum" id="sum" role="status">Выполняется…</p>
+  <div id="out"></div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/media.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/terms.js"></script>
+  <script src="assets/js/flow.js"></script>
+  <script>U.pages = {}; U.actions = U.actions || {};</script>
+  <script src="assets/js/pages/builder.js"></script>
+  <script>
+  (function () {
+    const groups = [];
+    let cur = null, pass = 0, fail = 0;
+    const group = (name) => { cur = { name, items: [] }; groups.push(cur); };
+    const ok = (cond, name, info) => { cur.items.push({ cond: !!cond, name, info }); cond ? pass++ : fail++; };
+    const eq = (a, b, name) => ok(JSON.stringify(a) === JSON.stringify(b), name, 'получено: ' + JSON.stringify(a) + (JSON.stringify(a) === JSON.stringify(b) ? '' : ', ожидалось: ' + JSON.stringify(b)));
+    const throws = (fn, name, re) => { try { fn(); ok(false, name, 'исключения не было'); } catch (e) { ok(!re || re.test(e.message), name, e.message); } };
+    const fresh = () => { U.store.useMemory(U.seed()); return U.store.s; };
+    const T = U.T, F = U.flow, cfg = U.config;
+    const dayDiff = (a, b) => Math.round((new Date(b).setHours(0, 0, 0, 0) - new Date(a).setHours(0, 0, 0, 0)) / 86400000);
+
+    group('Формулировки сроков');
+    eq(T.days(10, 'calendar'), '10 календарных дней', '10 календарных дней');
+    eq(T.days(1, 'calendar'), '1 календарный день', '1 календарный день');
+    eq(T.days(3, 'business'), '3 рабочих дня', '3 рабочих дня');
+    eq(T.days(5, 'business'), '5 рабочих дней', '5 рабочих дней');
+    eq(T.daysGen(2, 'business'), '2 рабочих дней', 'родительный падеж: «до 2 рабочих дней»');
+    eq(T.daysGen(1, 'business'), '1 рабочего дня', 'родительный падеж: «до 1 рабочего дня»');
+    const fri = new Date(2026, 9, 9, 12).toISOString(); // пятница
+    eq(new Date(T.addBusinessDays(fri, 3)).getDay(), 3, 'пятница + 3 рабочих дня = среда');
+    eq(dayDiff(fri, T.addDays(fri, 7)), 7, 'плюс 7 календарных дней');
+
+    group('Бюджет');
+    eq(T.budget({ fee: 6500, ship: true }, cfg).perCreator, 6500 + 780 + 390, 'гонорар + сбор 12% + доставка');
+    eq(T.budget({ fee: 6500, ship: true, returnProduct: true }, cfg).perCreator, 6500 + 780 + 390 + 390, 'с возвратом товара добавляется обратная доставка');
+    eq(T.budget({ fee: 6500, ship: false, returnProduct: true }, cfg).returnCost, 0, 'без доставки возврат не учитывается');
+    eq(T.budget({ fee: 5000, n: 3, ship: true }, cfg).total, (5000 + 600 + 390) * 3, 'бюджет кампании = за одного × креаторов');
+    ok(T.budget({ fee: 5000, ship: true }, cfg).estimated, 'доставка помечена как оценка');
+    ok(!T.budget({ fee: 5000, ship: false }, cfg).estimated, 'без доставки оценки нет');
+
+    group('Срок до и после получения товара');
+    let s = fresh();
+    let o = U.q.order('o-1046');
+    let d = T.due(o, (x) => x);
+    eq(d.kind, 'pending', 'в пути — срок ещё не рассчитан');
+    ok(/10 календарных дней после подтверждения получения товара/.test(d.label), 'формулировка «N дней после получения товара»', d.label);
+    eq(T.shootDue(o), null, 'точной даты сдачи нет');
+    F.receive('o-1046');
+    o = U.q.order('o-1046');
+    eq(o.stage, 'production', 'после подтверждения — этап «Съёмка»');
+    eq(dayDiff(o.delivery.receivedAt, T.shootDue(o)), 10, 'дата сдачи = получение + 10 дней');
+    ok(o.history[o.history.length - 1].text.includes('Срок сдачи рассчитан'), 'расчёт попал в историю');
+    ok(o.messages[o.messages.length - 1].text.includes('Срок сдачи материалов'), 'и в системное сообщение');
+
+    group('Условия заказа не меняются вместе с кампанией');
+    s = fresh();
+    const before = JSON.stringify(U.q.order('o-1037').terms);
+    U.q.campaign('cmp1').shootDays = 14; U.q.campaign('cmp1').returnProduct = true;
+    cfg.deliveryEstimate = 999;
+    eq(JSON.stringify(U.q.order('o-1037').terms), before, 'завершённый заказ хранит свои условия');
+    eq(T.orderTotal(U.q.order('o-1037')), 6500 + 780 + 390, 'сумма завершённого заказа не пересчитана');
+    cfg.deliveryEstimate = 390;
+    eq(T.snapshot(U.q.campaign('cmp1'), cfg).shootDays, 14, 'новые предложения берут новые условия кампании');
+
+    group('Заказ без доставки');
+    s = fresh();
+    const t0 = T.snapshot(Object.assign({}, U.q.campaign('cmp2'), { shipProduct: false }), cfg);
+    eq(t0.startEvent, 'payment', 'событие начала — оплата');
+    ok(/после оплаты заказа/.test(T.shootRule(t0)), 'формулировка «после оплаты заказа»', T.shootRule(t0));
+
+    group('Отклик → решение → принятие предложения → заказ');
+    s = fresh();
+    let r = F.chooseApplicant('a1');
+    eq(r.orderId, null, 'без демо-автопринятия заказ не создаётся сразу');
+    eq(U.q.offer(r.offerId).status, 'pending', 'предложение ждёт ответа креатора');
+    eq(s.applications.find((a) => a.id === 'a1').status, 'offered', 'отклик отмечен «предложение отправлено»');
+    throws(() => F.chooseApplicant('a1'), 'повторный выбор того же отклика запрещён');
+    const oid = F.acceptOffer(r.offerId);
+    o = U.q.order(oid);
+    eq(o.stage, 'agreement', 'заказ создан на этапе оплаты');
+    eq(o.fee, 5000, 'гонорар из отклика');
+    throws(() => F.acceptOffer(r.offerId), 'нельзя принять предложение дважды', /уже/);
+    r = F.createOffer({ campaignId: 'cmp1', creatorId: 'c3', fee: 7500 });
+    F.declineOffer(r.offerId, 'Не подходит срок');
+    eq(U.q.offer(r.offerId).status, 'declined', 'креатор может отклонить предложение с причиной');
+
+    group('Сдача → правки → новая версия → приёмка → выплата');
+    F.pay(oid, 'card');
+    eq(U.q.order(oid).stage, 'shipping', 'оплата → отправка');
+    eq(U.q.order(oid).payment.status, 'held', 'деньги зарезервированы');
+    throws(() => F.ship(oid, { carrier: 'Почта', track: '12' }), 'короткий трек отклоняется', /Трек/);
+    F.ship(oid, { carrier: 'Почта', track: 'RU12345678' });
+    F.receive(oid);
+    throws(() => F.accept(oid), 'принять до сдачи нельзя', /недоступно/);
+    F.submit(oid, { files: [{ media: 'v-lotion', name: 'a.mp4', kind: 'video', size: '1 МБ' }], note: '' });
+    eq(U.q.order(oid).stage, 'review', 'сдача → проверка');
+    ok(T.reviewDue(U.q.order(oid)), 'рассчитан срок проверки');
+    F.requestChanges(oid, [{ time: '0:03', text: 'Флакон крупнее' }]);
+    eq(U.q.order(oid).stage, 'revision', 'правки → этап правок');
+    ok(T.revisionDue(U.q.order(oid)), 'рассчитан срок правок');
+    F.submit(oid, { files: [{ media: 'v-lotion', name: 'b.mp4', kind: 'video', size: '1 МБ' }], note: '' });
+    F.requestChanges(oid, [{ time: '', text: 'Ещё одна правка' }]);
+    F.submit(oid, { files: [{ media: 'v-lotion', name: 'c.mp4', kind: 'video', size: '1 МБ' }], note: '' });
+    throws(() => F.requestChanges(oid, [{ time: '', text: 'Третья правка' }]), 'сверх включённых правок — запрещено', /закончились/);
+    F.accept(oid);
+    o = U.q.order(oid);
+    eq([o.stage, o.payment.status, o.payment.payoutStatus], ['accepted', 'released', 'processing'], 'приёмка: работа принята, выплата в обработке — разные статусы');
+    eq(o.versions.map((v) => v.status), ['changes_requested', 'changes_requested', 'accepted'], 'история версий');
+    F.payout(oid);
+    eq(U.q.order(oid).payment.payoutStatus, 'paid', 'выплата отмечена (симуляция)');
+    throws(() => F.payout(oid), 'повторная выплата запрещена');
+
+    group('Непроверенный креатор и физическая отправка');
+    s = fresh();
+    throws(() => F.createOffer({ campaignId: 'cmp2', creatorId: 'c10', fee: 5000 }), 'прямое предложение с доставкой — запрещено', /проверку/);
+    throws(() => F.chooseApplicant('a4'), 'выбор по отклику — запрещён', /проверку/);
+    s.offers.push({ id: 'ofX', campaignId: 'cmp2', creatorId: 'c10', fee: 5000, at: new Date().toISOString(), status: 'pending', terms: T.snapshot(U.q.campaign('cmp2'), cfg) });
+    throws(() => F.acceptOffer('ofX'), 'принятие ранее созданного предложения — запрещено', /проверку/);
+    const ord = U.q.order('o-1055'); ord.creatorId = 'c10';
+    throws(() => F.ship('o-1055', { carrier: 'Почта', track: 'RU12345678' }), 'добавление отправления — запрещено', /проверку/);
+    ok(!F.createOffer({ campaignId: 'cmp1', creatorId: 'c10', fee: 5000, termsOver: { ship: false, startEvent: 'payment', deliveryCost: 0 } }).orderId, 'заказ без отправки товара — разрешён');
+    F.docsDecide('c10', 'approve');
+    eq(U.q.creator('c10').verification, 'verified', 'после проверки документов статус меняется');
+    ok(F.chooseApplicant('a4').offerId, 'и выбор по отклику становится доступен');
+
+    group('Формат с публикацией');
+    s = fresh();
+    eq(U.q.minPrice(U.q.creator('c2'), 'publish'), 10000, 'Дарья: публикация от 10 000 ₽');
+    eq(U.q.publishService(U.q.creator('c2'), 'create_publish').price, 15000, 'Дарья: ролик + публикация 15 000 ₽');
+    eq(U.q.minPrice(U.q.creator('c2'), 'ugc'), 9000, 'Дарья: видео без публикации 9 000 ₽');
+    eq(U.q.minPrice(U.q.creator('c1'), 'publish'), null, 'у Алины нет услуги публикации');
+    eq(U.q.ugcPrice(U.q.creator('c1')).price, 6500, 'Алина: «Видео от» без фото-сета — 6 500 ₽');
+    eq(U.q.ugcPrice(U.q.creator('c1')).label, 'Видео', 'Алина: подпись «Видео»');
+    eq(U.q.ugcPrice({ services: [{ kind: 'ugc', title: 'Фото-сет, 5 кадров', price: 3000 }] }).label, 'Фото', 'только фото-услуги — подпись «Фото»');
+    o = U.q.order('o-1044');
+    eq(T.stages(o), ['agreement', 'shipping', 'in_transit', 'production', 'review', 'publishing', 'accepted'], 'этапы заказа с публикацией');
+    throws(() => F.confirmPublication('o-1044'), 'нельзя подтвердить без ссылки', /ссылку/);
+    throws(() => F.submitPublication('o-1044', { url: 'telegram' }), 'ссылка без http отклоняется', /http/);
+    F.submitPublication('o-1044', { url: 'https://t.me/demo/1' });
+    eq(T.actor(U.q.order('o-1044')), 'brand', 'после ссылки ход заказчика');
+    throws(() => F.confirmPublication('o-1044', [true, false, true]), 'все критерии приёмки обязательны', /критерии/);
+    F.confirmPublication('o-1044', [true, true, true]);
+    eq([U.q.order('o-1044').stage, U.q.order('o-1044').payment.payoutStatus], ['accepted', 'processing'], 'подтверждение публикации → выплата в обработке');
+    const ready = T.snapshot(Object.assign({}, U.q.campaign('cmp4'), { publication: Object.assign({}, U.q.campaign('cmp4').publication, { service: 'publish_ready' }) }), cfg);
+    eq([ready.ship, ready.startEvent], [false, 'payment'], 'публикация готового материала — без доставки, старт с оплаты');
+
+    group('Обращение → решение модератора → история');
+    s = fresh();
+    eq(U.q.order('o-1046').tickets[0].status, 'open', 'обращение открыто');
+    F.ticketReply('o-1046', 3001, 'Связались с перевозчиком, ждём ответ');
+    eq(U.q.order('o-1046').tickets[0].status, 'in_progress', 'после ответа — «В работе»');
+    throws(() => F.ticketStatus('o-1046', 3001, 'resolved', ''), 'решение без описания запрещено', /решение/);
+    F.ticketStatus('o-1046', 3001, 'resolved', 'Посылка найдена, доставят завтра');
+    const tk = U.q.order('o-1046').tickets[0];
+    eq(tk.status, 'resolved', 'обращение решено');
+    eq(tk.log.length, 4, 'история: создано, в работе, ответ, решение');
+    ok(U.q.order('o-1046').history.some((h) => h.text.includes('решено')), 'решение попало в историю заказа');
+
+    group('Повторный заказ с изменёнными условиями');
+    s = fresh();
+    r = F.repeatOrder('o-1037', { fee: 7000, shootDays: 14, ship: true, returnProduct: true, note: '' });
+    const of = U.q.offer(r.offerId);
+    eq([of.fee, of.terms.shootDays, of.terms.returnProduct, of.terms.returnCost, of.source], [7000, 14, true, 390, 'repeat'], 'предложение с новыми условиями');
+    const rid = F.acceptOffer(of.id);
+    eq(T.orderTotal(U.q.order(rid)), 7000 + 840 + 390 + 390, 'сумма нового заказа учитывает возврат');
+    eq(U.q.order('o-1037').terms.shootDays, 7, 'исходный заказ не изменился');
+
+    group('Конструктор: готовность шагов');
+    const R = U.builderRules;
+    const dft = R.blank();
+    ok(!R.stepReady(dft, 0), 'пустой шаг «Товар» не готов');
+    Object.assign(dft, { productName: 'Свеча «Хвоя»', category: 'Дом' });
+    ok(R.stepReady(dft, 0), 'после заполнения — готов');
+    dft.productName = '';
+    ok(!R.stepReady(dft, 0), 'очистка обязательного поля снимает готовность');
+    eq(R.firstInvalid(dft), 0, 'перед публикацией находится первый незаполненный шаг');
+    Object.assign(dft, { productName: 'Свеча «Хвоя»', title: 'Распаковка свечи', keyPoints: 'Аромат', mustShow: 'Фитиль' });
+    eq(R.firstInvalid(dft), undefined, 'все шаги готовы');
+    dft.format = 'publish';
+    eq(R.firstInvalid(dft), 1, 'переключение на публикацию требует площадку');
+    dft.platform = 'Telegram-канал';
+    eq(R.firstInvalid(dft), undefined, 'после выбора площадки снова готово');
+    dft.windowTo = '2000-01-01';
+    ok(!R.stepReady(dft, 1), 'конец периода раньше начала — ошибка');
+
+    /* Вывод */
+    document.getElementById('out').innerHTML = groups.map((g) => '<h2>' + g.name + '</h2><ol>' + g.items.map((i) => '<li class="' + (i.cond ? 'ok' : 'bad') + '">' + (i.cond ? '✓ ' : '✗ ') + i.name + (i.info && !i.cond ? ' <span>— ' + String(i.info).replace(/</g, '&lt;') + '</span>' : '') + '</li>').join('') + '</ol>').join('');
+    const sum = document.getElementById('sum');
+    sum.textContent = (fail ? 'Есть ошибки: ' : 'Все проверки пройдены: ') + pass + ' из ' + (pass + fail);
+    sum.className = 'sum ' + (fail ? 'bad' : 'ok');
+    window.__tests = { pass, fail };
+  })();
+  </script>
+</body>
+</html>

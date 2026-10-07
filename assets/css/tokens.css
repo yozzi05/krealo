@@ -1,0 +1,118 @@
+/* =========================================================
+   Дизайн-токены. Единственный источник цветов, шрифтов,
+   отступов, радиусов, теней и состояний.
+   Контраст (WCAG 2.1), посчитан по формуле относительной яркости:
+   text #171B18 / bg #F6F5F0 — 15.95:1
+   text-2 #62685F / bg — 5.25:1, / #FFFFFF — 5.73:1, / surface-2 — 4.93:1
+   ink #171B18 / accent #C7F36B — 13.64:1 (текст на лаймовых кнопках)
+   accent #C7F36B / dark #19231D — 12.67:1 (детали на тёмном)
+   on-dark-2 #AEB8AE / dark — 7.9:1, / dark-2 — 6.64:1
+   success #1D6A43 / success-bg — 5.62:1
+   warning #7A4E00 / warning-bg — 6.26:1
+   danger  #A3231B / danger-bg  — 6.14:1
+   info    #2A5476 / info-bg    — 6.69:1
+   placeholder #6B7168 / #FFFFFF — 5.02:1
+   Лайм на светлом фоне (1.17:1) не используется для текста и границ —
+   только как заливка с тёмным текстом или как точка с тёмной обводкой.
+   ========================================================= */
+:root {
+  /* Цвет: основа */
+  --c-bg: #F6F5F0;
+  --c-surface: #FFFFFF;
+  --c-surface-2: #EFEEE7;
+  --c-text: #171B18;
+  --c-text-2: #62685F;
+  --c-line: #E2E5DC;
+  --c-line-strong: #CDD2C6;
+  --c-line-input: #858B82; /* граница полей: 3.5:1 к белому, 3.2:1 к фону (WCAG 1.4.11) */
+  --c-accent: #C7F36B;
+  --c-accent-hover: #B8E856;
+  --c-accent-press: #A8DA45;
+  --c-on-accent: #171B18;
+  --c-dark: #19231D;
+  --c-dark-2: #243129;
+  --c-dark-line: #34443A;
+  --c-on-dark: #F6F5F0;
+  --c-on-dark-2: #AEB8AE;
+
+  /* Цвет: состояния */
+  --c-success: #1D6A43;
+  --c-success-bg: #E2F1E7;
+  --c-warning: #7A4E00;
+  --c-warning-bg: #FBEED3;
+  --c-danger: #A3231B;
+  --c-danger-bg: #FBE4E1;
+  --c-info: #2A5476;
+  --c-info-bg: #E3ECF4;
+  --c-neutral-bg: #ECEDE6;
+
+  /* Фокус: тёмное кольцо на светлом, лаймовое на тёмном */
+  --focus-ring: 0 0 0 2px var(--c-bg), 0 0 0 4px var(--c-text);
+  --focus-ring-dark: 0 0 0 2px var(--c-dark), 0 0 0 4px var(--c-accent);
+
+  /* Типографика */
+  --font: "Onest", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --fs-12: 0.8125rem;  /* 13px — только мета, не важные подписи */
+  --fs-14: 0.875rem;   /* 14px — подписи */
+  --fs-15: 0.9375rem;  /* 15px — плотный интерфейс */
+  --fs-16: 1rem;       /* 16px — основной текст */
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-32: clamp(1.625rem, 1.2rem + 1.4vw, 2.5rem);
+  --fs-44: clamp(1.875rem, 1.15rem + 2.3vw, 4.5rem);
+  --fs-display: clamp(2.4rem, 0.6rem + 5vw, 11rem);
+  --lh-tight: 1.04;
+  --lh-head: 1.15;
+  --lh-body: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-black: 800;
+  --tracking-display: -0.035em;
+  --tracking-head: -0.02em;
+
+  /* Отступы (шаг 4px) */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
+  --s-20: 80px; --s-24: 96px; --s-32: 128px;
+  --gutter: clamp(16px, 4vw, 56px);       /* кабинеты */
+  --page-x: clamp(16px, 3.5vw, 112px);   /* лендинг: плавные боковые поля без ограничения ширины */
+  --header-h: clamp(68px, 2.8rem + 1.6vw, 128px);
+  --section-y: clamp(48px, 6.5vw, 176px);
+  --measure: 46ch;                       /* ширина абзацев на лендинге */
+  --max-app: 1440px;
+
+  /* Радиусы: малые для полей и кнопок, мягче для медиа */
+  --r-xs: 4px;
+  --r-sm: 6px;    /* поля, кнопки */
+  --r-md: 10px;   /* панели интерфейса */
+  --r-lg: 16px;   /* карточки контента, медиа */
+  --r-pill: 999px; /* только фильтры, теги, статусы */
+
+  /* Границы и тени: тонкие и редкие */
+  --b-1: 1px solid var(--c-line);
+  --b-strong: 1px solid var(--c-line-strong);
+  --sh-1: 0 1px 2px rgba(23, 27, 24, 0.06);
+  --sh-2: 0 12px 32px -12px rgba(23, 27, 24, 0.22);
+  --sh-modal: 0 24px 64px -16px rgba(23, 27, 24, 0.35);
+
+  /* Движение: коротко и функционально */
+  --t-fast: 120ms;
+  --t-base: 180ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Контролы */
+  --control-h: 44px;
+  --control-h-sm: 36px;
+
+  /* Слои */
+  --z-header: 30;
+  --z-drawer: 60;
+  --z-toast: 90;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-fast: 0ms; --t-base: 0ms; }
+}
